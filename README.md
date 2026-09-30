@@ -86,6 +86,8 @@ npm run build && npm run e2e
 `main` ブランチに変更が入ると、GitHub Actions が **テスト → ビルド → GitHub Pages へ公開** を自動で行います（`.github/workflows/ci.yml`）。
 公開 URL: `https://kangchenjunga-8586.github.io/-web-/`
 
+公開は完全に自動です（マージから約 6 分）。GitHub の Actions 画面で「Run workflow」を押す必要はありません。`main` で実行中の公開作業は、あとから別の実行が起動されても取り消されません。
+
 ### 最初の 1 回だけ必要な設定（iPhone の Safari で github.com を開いて操作）
 
 1. リポジトリの **Settings → Pages → Build and deployment → Source** を「**GitHub Actions**」にする
