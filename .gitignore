@@ -9,4 +9,4 @@ blob-report
 .DS_Store
 *.local
 .vite
-e2e/screenshots/*.actual.png
+e2e/screenshots/
