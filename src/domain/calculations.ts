@@ -410,18 +410,24 @@ export function assessPace(goal: Goal, metrics: GoalMetrics, forecast: Forecast,
 
   // Not enough history for a forecast yet: compare with the ideal straight-line pace.
   const gap = metrics.idealSavingsToday - metrics.currentSavings;
-  const reasons = [
-    `理想ペースでは今日時点で ${formatYen(metrics.idealSavingsToday)}、現在は ${formatYen(metrics.currentSavings)} です。`,
-  ];
+  const now = formatYen(metrics.currentSavings);
+  const ideal = formatYen(metrics.idealSavingsToday);
   let status: PaceStatus;
-  if (gap <= 0) {
+  let lead: string;
+  if (today <= goal.startDate && gap <= 0) {
     status = 'on-track';
-    reasons[0] += `（${formatYen(-gap)} 先行）`;
+    lead = `貯金スタートです。毎月 ${formatYen(metrics.requiredSavingsPerMonth)} ずつ貯めれば目標日に間に合います。`;
+  } else if (gap < 0) {
+    status = 'on-track';
+    lead = `理想ペースより ${formatYen(-gap)} 先行しています（現在 ${now} / 理想 ${ideal}）。`;
+  } else if (gap === 0) {
+    status = 'on-track';
+    lead = `理想ペースどおりです（現在 ${now}）。`;
   } else {
     status = gap <= threshold ? 'slightly-behind' : 'behind';
-    reasons[0] += `（${formatYen(gap)} 遅れ）`;
+    lead = `理想ペースより ${formatYen(gap)} 遅れています（現在 ${now} / 理想 ${ideal}）。`;
   }
-  reasons.push(`予測は記録が${MIN_HISTORY_DAYS}日分たまると表示されます（あと${forecast.daysUntilReady}日）。`);
+  const reasons = [lead, `予測は記録が${MIN_HISTORY_DAYS}日分たまると表示されます（あと${forecast.daysUntilReady}日）。`];
   return {
     status,
     basis: 'pace',

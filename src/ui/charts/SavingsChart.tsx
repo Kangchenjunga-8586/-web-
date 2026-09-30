@@ -15,7 +15,7 @@ import { projectionSeries, savingsHistory } from '../../domain/calculations';
 import { formatDateSlash, toDayNumber } from '../../domain/dates';
 import { formatYen, formatYenCompact } from '../../domain/money';
 import { useApp } from '../AppContext';
-import { buildSavingsChartData, chartEnd, formatMonthTick, monthTicks, niceMax, type SavingsChartPoint } from './chartData';
+import { buildSavingsChartData, chartEnd, formatMonthTick, monthTicks, yAxisScale, type SavingsChartPoint } from './chartData';
 
 function LineKey({ dash, color }: { dash?: string; color: string }) {
   return (
@@ -58,7 +58,7 @@ export default function SavingsChart({ height }: { height: number }) {
   const { goal, snapshot, today, dashboard } = useApp();
   const { transactions, recurringRules } = snapshot;
 
-  const { data, ticks, yMax, yMin, end, hasProjection } = useMemo(() => {
+  const { data, ticks, y, end, hasProjection } = useMemo(() => {
     const history = savingsHistory(goal, transactions, today);
     const projection = projectionSeries(goal, transactions, recurringRules, dashboard.forecast, today);
     const points = buildSavingsChartData(goal, history, projection);
@@ -67,8 +67,7 @@ export default function SavingsChart({ height }: { height: number }) {
     return {
       data: points,
       ticks: monthTicks(goal.startDate, end),
-      yMax: niceMax(Math.max(goal.targetAmount, ...values) * 1.04),
-      yMin: Math.min(0, ...values),
+      y: yAxisScale(Math.max(goal.targetAmount, ...values), Math.min(0, ...values)),
       end,
       hasProjection: projection.length > 0,
     };
@@ -112,8 +111,8 @@ export default function SavingsChart({ height }: { height: number }) {
             />
             <YAxis
               width={46}
-              domain={[yMin, yMax]}
-              tickCount={4}
+              domain={y.domain}
+              ticks={y.ticks}
               allowDecimals={false}
               tickFormatter={formatYenCompact}
               tickLine={false}

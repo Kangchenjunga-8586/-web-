@@ -52,11 +52,20 @@ export function chartEnd(goal: Goal, today: ISODate): ISODate {
   return maxDate(goal.targetDate, today);
 }
 
-/** A "nice" upper bound for the y axis. */
-export function niceMax(value: number): number {
-  if (value <= 0) return 10_000;
-  const magnitude = 10 ** Math.floor(Math.log10(value));
-  const steps = [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10];
-  const n = value / magnitude;
-  return (steps.find((s) => s >= n) ?? 10) * magnitude;
+function niceStep(raw: number): number {
+  const magnitude = 10 ** Math.floor(Math.log10(raw));
+  const n = raw / magnitude;
+  return ([1, 2, 2.5, 5, 10].find((s) => s >= n) ?? 10) * magnitude;
+}
+
+/** Evenly spaced, round y-axis ticks (¥0 / ¥20万 / ¥40万 …) covering [min, max]. */
+export function yAxisScale(maxValue: number, minValue = 0, targetTicks = 4): { domain: [number, number]; ticks: number[] } {
+  const hi = Math.max(maxValue, 1_000);
+  const lo = Math.min(minValue, 0);
+  const step = niceStep((hi - lo) / targetTicks);
+  const start = Math.floor(lo / step) * step;
+  const end = Math.ceil(hi / step) * step;
+  const ticks: number[] = [];
+  for (let v = start; v <= end + step / 2; v += step) ticks.push(Math.round(v));
+  return { domain: [start, end], ticks };
 }

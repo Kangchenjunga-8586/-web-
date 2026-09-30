@@ -1,6 +1,7 @@
 import { lazy, Suspense, useMemo } from 'react';
 import { idealSavingsOn } from '../../domain/calculations';
 import { diffDays, formatDateJa, formatDateSlash, todayInTokyo } from '../../domain/dates';
+import { formatYen } from '../../domain/money';
 import type { Transaction } from '../../domain/types';
 import { useApp } from '../AppContext';
 import { Button } from '../components/Button';
@@ -30,6 +31,7 @@ export function HomeScreen() {
 
   const totalDays = Math.max(1, diffDays(goal.startDate, goal.targetDate));
   const idealRatio = goal.targetAmount > 0 ? idealSavingsOn(goal, today) / goal.targetAmount : null;
+  const showIdealMarker = !metrics.achieved && idealRatio !== null && idealRatio > 0 && idealRatio < 1;
   const lastBackup = snapshot.settings.lastBackupAt;
   const needsBackup =
     snapshot.transactions.length >= 10 &&
@@ -42,7 +44,7 @@ export function HomeScreen() {
       <header className="flex items-end justify-between gap-3 pt-3 pb-3">
         <div className="min-w-0">
           <p className="text-[13px] font-medium text-ink-3">{formatDateJa(today)}</p>
-          <h1 className="truncate text-[28px] leading-tight font-bold tracking-[-0.01em]" data-testid="goal-name">
+          <h1 className="line-clamp-2 text-[28px] leading-tight font-bold tracking-[-0.01em] break-words" data-testid="goal-name">
             {goal.name}
           </h1>
         </div>
@@ -67,9 +69,15 @@ export function HomeScreen() {
           <ProgressBar
             ratio={metrics.progressRatio}
             achieved={metrics.achieved}
-            marker={metrics.achieved ? null : idealRatio}
+            marker={showIdealMarker ? idealRatio : null}
             label={`達成率 ${metrics.progressPercent}%`}
           />
+          {showIdealMarker && (
+            <p className="mt-1.5 flex items-center gap-1.5 text-[12px] text-ink-3">
+              <span className="inline-block h-3 w-[2px] rounded-full bg-ink/50" aria-hidden="true" />
+              今日の理想ペース <span className="num font-medium text-ink-2">{formatYen(metrics.idealSavingsToday)}</span>
+            </p>
+          )}
         </div>
         <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-hairline pt-3.5">
           <div>

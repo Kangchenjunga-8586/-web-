@@ -3,8 +3,9 @@ import { formatNumber } from '../../domain/money';
 type Size = 'hero' | 'xl' | 'lg' | 'md' | 'sm';
 
 const SIZES: Record<Size, { num: string; yen: string }> = {
-  hero: { num: 'text-[44px] leading-[1.05] font-semibold tracking-[-0.02em]', yen: 'text-[26px] font-semibold mr-0.5' },
-  xl: { num: 'text-[30px] leading-tight font-semibold tracking-[-0.01em]', yen: 'text-[19px] font-semibold mr-px' },
+  // Fluid sizes: full size at 440pt wide, shrinking gracefully with Safari text zoom.
+  hero: { num: 'text-[clamp(34px,10vw,44px)] leading-[1.05] font-semibold tracking-[-0.02em]', yen: 'text-[clamp(20px,5.9vw,26px)] font-semibold mr-0.5' },
+  xl: { num: 'text-[clamp(22px,6.8vw,30px)] leading-tight font-semibold tracking-[-0.01em]', yen: 'text-[clamp(15px,4.3vw,19px)] font-semibold mr-px' },
   lg: { num: 'text-[22px] leading-tight font-semibold', yen: 'text-[15px] font-semibold mr-px' },
   md: { num: 'text-[17px] font-semibold', yen: 'text-[13px] font-semibold mr-px' },
   sm: { num: 'text-[15px] font-medium', yen: 'text-[12px] font-medium' },

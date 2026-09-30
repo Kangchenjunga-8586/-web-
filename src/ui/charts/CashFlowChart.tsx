@@ -4,9 +4,10 @@ import { monthlySeries, type MonthSummary } from '../../domain/calculations';
 import { formatMonthJa, formatMonthShort, monthKey } from '../../domain/dates';
 import { formatSignedYen, formatYen, formatYenCompact } from '../../domain/money';
 import { useApp } from '../AppContext';
-import { niceMax } from './chartData';
+import { yAxisScale } from './chartData';
 
 const MONTHS = 6;
+const MIN_MONTHS = 3;
 
 function Swatch({ color }: { color: string }) {
   return <span className="inline-block size-2.5 shrink-0 rounded-[3px]" style={{ background: color }} aria-hidden="true" />;
@@ -38,8 +39,13 @@ function CashTooltip({ active, payload }: { active?: boolean; payload?: { payloa
 /** Income vs. expenses for the last 6 months, with the same numbers as a table. */
 export default function CashFlowChart() {
   const { snapshot, today } = useApp();
-  const series = useMemo(() => monthlySeries(snapshot.transactions, monthKey(today), MONTHS), [snapshot.transactions, today]);
-  const yMax = niceMax(Math.max(...series.flatMap((m) => [m.income, m.expense])) * 1.05);
+  const series = useMemo(() => {
+    const all = monthlySeries(snapshot.transactions, monthKey(today), MONTHS);
+    // Drop empty months before the first record, but keep at least MIN_MONTHS bars.
+    const first = all.findIndex((m) => m.income > 0 || m.expense > 0);
+    return all.slice(Math.min(first === -1 ? all.length : first, MONTHS - MIN_MONTHS));
+  }, [snapshot.transactions, today]);
+  const y = yAxisScale(Math.max(...series.flatMap((m) => [m.income, m.expense])));
 
   return (
     <figure className="m-0">
@@ -58,14 +64,14 @@ export default function CashFlowChart() {
           <BarChart data={series} margin={{ top: 8, right: 8, bottom: 0, left: 0 }} barGap={2} barCategoryGap="26%">
             <CartesianGrid vertical={false} stroke="var(--grid)" />
             <XAxis dataKey="month" tickFormatter={formatMonthShort} tickLine={false} axisLine={{ stroke: 'var(--axis)' }} tickMargin={6} />
-            <YAxis width={46} domain={[0, yMax]} tickCount={4} allowDecimals={false} tickFormatter={formatYenCompact} tickLine={false} axisLine={false} />
+            <YAxis width={46} domain={y.domain} ticks={y.ticks} allowDecimals={false} tickFormatter={formatYenCompact} tickLine={false} axisLine={false} />
             <Tooltip content={<CashTooltip />} cursor={{ fill: 'var(--surface-2)' }} isAnimationActive={false} />
             <Bar dataKey="income" fill="var(--series-1)" radius={[4, 4, 0, 0]} maxBarSize={14} isAnimationActive={false} />
             <Bar dataKey="expense" fill="var(--series-2)" radius={[4, 4, 0, 0]} maxBarSize={14} isAnimationActive={false} />
           </BarChart>
         </ResponsiveContainer>
       </div>
-      <figcaption className="sr-only">過去{MONTHS}か月の収入と支出。数値は下の表を参照。</figcaption>
+      <figcaption className="sr-only">過去{series.length}か月の収入と支出。数値は下の表を参照。</figcaption>
       <table className="mt-2 w-full text-[13px]" data-testid="cashflow-table">
         <caption className="sr-only">月別の収支</caption>
         <thead>
