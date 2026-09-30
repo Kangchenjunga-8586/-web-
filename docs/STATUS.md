@@ -1,11 +1,12 @@
 # STATUS — GoalBudget
 
 最終更新: 2026-09-30（Claude Code クラウドセッション）
-作業ブランチ: `claude/nifty-allen-bcdfi0` → `main` へマージすると自動デプロイ
+公開 URL: https://kangchenjunga-8586.github.io/-web-/
 
 ## Current state
 
-v1 の機能はすべて実装済み・テスト済み。`main` へのマージと GitHub Pages の有効化（iPhone で 1 回だけ）で公開される状態。
+v1 の機能はすべて実装済み・テスト済みで、**GitHub Pages に公開済み**（2026-09-30、`main` の実行 #7 で verify・deploy とも成功）。
+以後は `main` に変更が入るたびに、テスト → ビルド → 公開が自動で行われる。
 
 ## Completed
 
@@ -30,7 +31,7 @@ v1 の機能はすべて実装済み・テスト済み。`main` へのマージ�
 
 ## Remaining
 
-- 実機（iPhone 17 Pro Max）での最終確認のみ。クラウド環境では WebKit（Linux 版）と Chromium でのエミュレーションまで検証済み。
+- 実機（iPhone 17 Pro Max）での最終確認のみ（ホーム画面に追加して起動・入力・バックアップの書き出し/復元）。クラウド環境では WebKit（Linux 版）と Chromium でのエミュレーションまで検証済み。
 
 ## Tests
 
@@ -49,8 +50,10 @@ v1 の機能はすべて実装済み・テスト済み。`main` へのマージ�
 
 - ワークフロー: `.github/workflows/ci.yml`
 - `main` への push → verify（lint, typecheck, unit, build, E2E Chromium+WebKit）→ deploy（GitHub Pages）
-- 公開 URL（有効化後）: https://kangchenjunga-8586.github.io/-web-/
+- 公開 URL: https://kangchenjunga-8586.github.io/-web-/（Pages の Source は「GitHub Actions」、リポジトリは Public）
 - ビルド時に `BASE_PATH=/<repo名>/` を設定（ローカル/E2E は `/`）
+- 公開は自動。GitHub の Actions 画面で「Run workflow」を押す必要はない。`main` の実行は取り消されない設定（`concurrency.cancel-in-progress` は `main` 以外のみ true）。
+- サブパス構成の確認: `BASE_PATH=/-web-/` でビルドして `vite preview` で配信し、manifest の `start_url`/`scope`、アイコン、Service Worker のスコープ、ハッシュルーティング、オフライン再起動を検証済み（すべて PASS）。
 
 ## Known issues / limitations
 
@@ -59,10 +62,21 @@ v1 の機能はすべて実装済み・テスト済み。`main` へのマージ�
 - ステータスバーは `apple-mobile-web-app-status-bar-style=default`（読みやすさ優先）。
 - iPhone からホーム画面アイコンを削除すると、ブラウザ保存データも削除される（バックアップで復元可能）。
 - 予測は「定期収支 + 直近平均」の線形モデル。大きな臨時出費があると一時的に悲観的になる。
+- クラウド環境の外向き通信規則により `github.io` へ直接アクセスできない（プロキシが 403）。公開の確認は、Actions のデプロイ結果（`Reported success!` と環境 URL）とサブパス構成のローカル検証で行う。迂回はしない。
+- 公開リポジトリのコミット履歴には、オーナーのメールアドレスが含まれる（初回コミット）。
+
+## Incident log
+
+- 2026-09-30: 初回のマージ直後、`main` の自動実行（#5）の途中で手動実行（#6）が重なり、当時の `cancel-in-progress: true` により両方が取り消されて公開されなかった。`main` の実行 #7（手動起動）で公開に成功。再発防止として、`main` の実行は取り消さない設定に変更した（`.github/workflows/ci.yml`）。
 
 ## Manual actions (iPhone だけで可能)
 
-1. GitHub（Safari で github.com）: リポジトリ **Settings → Pages → Source: GitHub Actions**
-2. private リポジトリで GitHub 無料プランの場合: **Settings → General → Change repository visibility → Public**（コードのみ公開、家計データは含まれない）
-3. 作業ブランチを `main` にマージ（Claude Code に PR 作成を依頼 → GitHub アプリで Merge）
-4. Safari で公開 URL を開く → 共有 → **ホーム画面に追加**
+完了済み:
+
+1. リポジトリ **Settings → Pages → Source: GitHub Actions**
+2. リポジトリを Public にする（無料プランでは private の Pages が使えないため。コードのみ公開、家計データは含まれない）
+3. 作業ブランチを `main` にマージ（PR #1）
+
+残り:
+
+4. Safari で公開 URL を開く → 共有ボタン →「**ホーム画面に追加**」→ ホーム画面のアイコンから起動して目標を入力
