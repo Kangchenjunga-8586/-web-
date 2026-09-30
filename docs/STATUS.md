@@ -22,7 +22,7 @@ v1 の機能はすべて実装済み・テスト済み。`main` へのマージ�
 - [x] Phase 11 PWA（manifest、アイコン、Service Worker、オフライン起動、更新はプロンプト式）
 - [x] Phase 12 iPhone 17 Pro Max 最適化（440×956、Safe Area、dvh、キーボード追従シート、片手操作の下部アクション）
 - [x] Phase 13 アクセシビリティ（ラベル、role、フォーカス、44pt タッチ領域、reduced motion、コントラスト、グラフの表ビュー）
-- [x] Phase 14 テスト（ユニット/結合 79 件、E2E 23 件）
+- [x] Phase 14 テスト（ユニット/結合 80 件、E2E 23 件 × Chromium・WebKit）
 - [x] Phase 15 440×956 ビジュアル確認（ライト/ダーク、キーボード表示時、横向き、125% 文字拡大、長い商品名）
 - [x] Phase 16 本番ビルド
 - [x] Phase 17 GitHub Actions（全ブランチで検証、`main` で GitHub Pages へデプロイ）
@@ -37,7 +37,7 @@ v1 の機能はすべて実装済み・テスト済み。`main` へのマージ�
 | 種類 | 件数 | 実行場所 |
 | --- | --- | --- |
 | Lint / typecheck | — | ローカル（クラウド）+ CI |
-| Unit / integration (Vitest) | 79 | ローカル（クラウド）+ CI |
+| Unit / integration (Vitest + React Testing Library) | 80 | ローカル（クラウド）+ CI |
 | E2E Chromium (440×956, Safe Area エミュレーション) | 23 | ローカル（クラウド）+ CI |
 | E2E WebKit (440×956) | 23 | CI |
 
@@ -55,6 +55,7 @@ v1 の機能はすべて実装済み・テスト済み。`main` へのマージ�
 ## Known issues / limitations
 
 - 実機 iOS Safari / ホーム画面アプリでの確認はクラウドからは不可能（WebKit エンジンと Safe Area/キーボードのエミュレーションで代替検証）。
+- Playwright の WebKit はオフライン emulation 時に Service Worker 経由のナビゲーションができないため、WebKit ではキャッシュ内容（index.html・JS・CSS）の検証まで、実際のオフライン再起動は Chromium で検証。
 - ステータスバーは `apple-mobile-web-app-status-bar-style=default`（読みやすさ優先）。
 - iPhone からホーム画面アイコンを削除すると、ブラウザ保存データも削除される（バックアップで復元可能）。
 - 予測は「定期収支 + 直近平均」の線形モデル。大きな臨時出費があると一時的に悲観的になる。
