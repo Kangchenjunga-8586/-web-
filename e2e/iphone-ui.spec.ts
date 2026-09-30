@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
-import { emulateSafeArea, expectNoHorizontalScroll, FIXED_NOW, goTab, SAFE_AREA_PORTRAIT } from './helpers';
+import { effectiveSafeArea, emulateSafeArea, expectNoHorizontalScroll, FIXED_NOW, goTab } from './helpers';
 import { demoBackup } from './seed';
 
 /**
@@ -71,11 +71,11 @@ async function expectTouchTargets(page: Page) {
 async function expectSafeAreas(page: Page) {
   // Top: page headings must sit below the Dynamic Island inset.
   const headingTop = await page.locator('main h1').first().evaluate((el) => el.getBoundingClientRect().top);
-  expect(headingTop).toBeGreaterThanOrEqual(SAFE_AREA_PORTRAIT.top);
+  expect(headingTop).toBeGreaterThanOrEqual(effectiveSafeArea(page).top);
   // Bottom: tab bar controls must end above the home indicator.
   const nav = page.getByRole('navigation', { name: 'メインメニュー' });
   const lowest = await nav.locator('button').evaluateAll((els) => Math.max(...els.map((e) => e.getBoundingClientRect().bottom)));
-  expect(lowest).toBeLessThanOrEqual(VIEW_H - SAFE_AREA_PORTRAIT.bottom);
+  expect(lowest).toBeLessThanOrEqual(VIEW_H - effectiveSafeArea(page).bottom);
   const navBottom = await nav.evaluate((el) => el.getBoundingClientRect().bottom);
   expect(navBottom).toBeCloseTo(VIEW_H, 0);
 }
@@ -96,7 +96,7 @@ for (const scheme of ['light', 'dark'] as const) {
       await expectNoHorizontalScroll(page);
       await expectTouchTargets(page);
       const top = await page.locator('main h1').evaluate((el) => el.getBoundingClientRect().top);
-      expect(top).toBeGreaterThanOrEqual(SAFE_AREA_PORTRAIT.top);
+      expect(top).toBeGreaterThanOrEqual(effectiveSafeArea(page).top);
       await shot(page, `${scheme}-01-setup`);
     });
 
@@ -165,16 +165,16 @@ for (const scheme of ['light', 'dark'] as const) {
       await expectTouchTargets(page);
       const submit = sheet.getByTestId('tx-submit');
       let box = (await submit.boundingBox())!;
-      expect(box.y + box.height).toBeLessThanOrEqual(VIEW_H - SAFE_AREA_PORTRAIT.bottom);
+      expect(box.y + box.height).toBeLessThanOrEqual(VIEW_H - effectiveSafeArea(page).bottom);
       await shot(page, `${scheme}-12-add-sheet`);
 
       await showKeyboard(page, 336);
       box = (await submit.boundingBox())!;
       expect(box.y + box.height, 'submit button stays above the keyboard').toBeLessThanOrEqual(VIEW_H - 336);
       const amount = (await sheet.getByLabel('金額').boundingBox())!;
-      expect(amount.y, 'amount field is visible above the keyboard').toBeGreaterThanOrEqual(SAFE_AREA_PORTRAIT.top);
+      expect(amount.y, 'amount field is visible above the keyboard').toBeGreaterThanOrEqual(effectiveSafeArea(page).top);
       const sheetBox = (await sheet.boundingBox())!;
-      expect(sheetBox.y, 'sheet does not go under the Dynamic Island').toBeGreaterThanOrEqual(SAFE_AREA_PORTRAIT.top);
+      expect(sheetBox.y, 'sheet does not go under the Dynamic Island').toBeGreaterThanOrEqual(effectiveSafeArea(page).top);
       await shot(page, `${scheme}-13-add-sheet-keyboard`);
     });
 
@@ -222,7 +222,7 @@ test('landscape: still usable with side safe areas', async ({ page }) => {
   const nav = page.getByRole('navigation', { name: 'メインメニュー' });
   await expect(nav.getByRole('button', { name: '設定' })).toBeInViewport();
   const h1 = (await page.locator('main h1').first().boundingBox())!;
-  expect(h1.x).toBeGreaterThanOrEqual(62);
+  expect(h1.x).toBeGreaterThanOrEqual(effectiveSafeArea(page, { top: 0, bottom: 21, left: 62, right: 62 }).left);
   await page.getByTestId('fab-add').click();
   await expect(page.getByTestId('tx-submit')).toBeInViewport();
   await shot(page, 'light-17-landscape-sheet');

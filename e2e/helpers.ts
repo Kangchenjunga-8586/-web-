@@ -6,8 +6,18 @@ export const FIXED_NOW = new Date('2026-09-30T10:00:00+09:00');
 /** iPhone 17 Pro Max portrait safe-area insets (Dynamic Island / home indicator). */
 export const SAFE_AREA_PORTRAIT = { top: 62, bottom: 34, left: 0, right: 0 };
 
+/** Safe-area insets are emulated via CDP, which only Chromium supports. */
+export function canEmulateSafeArea(page: Page): boolean {
+  return page.context().browser()?.browserType().name() === 'chromium';
+}
+
+/** The insets actually in effect for this browser (zeros where emulation is unavailable). */
+export function effectiveSafeArea(page: Page, insets = SAFE_AREA_PORTRAIT) {
+  return canEmulateSafeArea(page) ? insets : { top: 0, bottom: 0, left: 0, right: 0 };
+}
+
 export async function emulateSafeArea(page: Page, insets = SAFE_AREA_PORTRAIT) {
-  if (page.context().browser()?.browserType().name() !== 'chromium') return false;
+  if (!canEmulateSafeArea(page)) return false;
   const cdp = await page.context().newCDPSession(page);
   await cdp.send('Emulation.setSafeAreaInsetsOverride' as never, { insets } as never);
   return true;
