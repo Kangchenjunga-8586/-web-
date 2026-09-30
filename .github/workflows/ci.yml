@@ -13,7 +13,10 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Superseded runs are cancelled on feature branches only. A run on main must never be
+  # cancelled by a second trigger (e.g. an accidental manual "Run workflow"), because that
+  # would abort the deployment.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   verify:
