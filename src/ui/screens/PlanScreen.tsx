@@ -70,7 +70,7 @@ export function PlanScreen() {
           </dl>
         </section>
 
-        {!metrics.achieved && (
+        {!metrics.achieved && !metrics.targetDatePassed && (
           <Section title="目標日に間に合わせるには">
             <dl className="grid grid-cols-2 divide-x divide-hairline py-4">
               <div className="px-5">

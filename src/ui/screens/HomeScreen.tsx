@@ -114,7 +114,7 @@ export function HomeScreen() {
       </div>
 
       {/* Next action: how much to save. */}
-      {!metrics.achieved && (
+      {!metrics.achieved && !metrics.targetDatePassed && (
         <section className="card mt-3 grid grid-cols-2 divide-x divide-hairline py-4" aria-label="必要な貯金額">
           <div className="px-5">
             <p className="text-[13px] text-ink-3">毎月の目標貯金</p>
