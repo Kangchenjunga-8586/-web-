@@ -86,7 +86,7 @@ describe('csv export', () => {
       ],
       [...DEFAULT_CATEGORIES],
     );
-    expect(csv.startsWith('﻿日付,種類,カテゴリ,金額,メモ,自動記録\r\n')).toBe(true);
+    expect(csv.startsWith('\uFEFF日付,種類,カテゴリ,金額,メモ,自動記録\r\n')).toBe(true);
     const lines = csv.slice(1).trim().split('\r\n');
     expect(lines[1]).toBe('2026-09-29,収入,アルバイト,60000,,定期');
     expect(lines[2]).toBe('2026-09-28,支出,食費,1200,"ランチ, ""大盛り""",');

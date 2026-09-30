@@ -84,7 +84,7 @@ describe('planRecurringGeneration', () => {
     let rules = [makeRule({ id: 'job', dayOfMonth: 25, startDate: '2026-07-01' })];
     rules = applyPlan(store, rules, '2026-09-30');
     rules = applyPlan(store, rules, '2026-09-30');
-    rules = applyPlan(store, rules, '2026-09-30');
+    applyPlan(store, rules, '2026-09-30');
     expect(store.size).toBe(3);
   });
 
@@ -106,7 +106,7 @@ describe('planRecurringGeneration', () => {
     expect(store.size).toBe(1);
     rules = applyPlan(store, rules, '2026-10-24');
     expect(store.size).toBe(1);
-    rules = applyPlan(store, rules, '2026-10-25');
+    applyPlan(store, rules, '2026-10-25');
     expect(store.size).toBe(2);
   });
 
@@ -116,7 +116,7 @@ describe('planRecurringGeneration', () => {
     rules = applyPlan(store, rules, '2026-09-30');
     store.delete('rec:job:2026-09-25');
     rules = applyPlan(store, rules, '2026-09-30');
-    rules = applyPlan(store, rules, '2026-10-01');
+    applyPlan(store, rules, '2026-10-01');
     expect(store.has('rec:job:2026-09-25')).toBe(false);
   });
 

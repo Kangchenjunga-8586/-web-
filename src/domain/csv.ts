@@ -29,7 +29,7 @@ export function transactionsToCsv(transactions: readonly Transaction[], categori
         .map(escapeCell)
         .join(','),
     );
-  return `﻿${[HEADER.join(','), ...rows].join('\r\n')}\r\n`;
+  return `\uFEFF${[HEADER.join(','), ...rows].join('\r\n')}\r\n`;
 }
 
 export function csvFileName(today: string): string {

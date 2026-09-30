@@ -1,0 +1,301 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Design tokens. Light/dark are defined as CSS variables and exposed to Tailwind via
+ * @theme inline, so components use bg-surface / text-ink etc. without dark: variants.
+ * Chart series colors were validated (CVD + contrast) against --surface in both modes.
+ */
+:root {
+  color-scheme: light;
+  --bg: #f2f2f0;
+  --surface: #ffffff;
+  --surface-2: #f3f3f1;
+  --surface-3: #e7e7e3;
+  --ink: #111111;
+  --ink-2: #4d4c49;
+  --ink-3: #6b6964;
+  --hairline: #e3e2dc;
+  --accent: #256abf;
+  --accent-ink: #1f5fae;
+  --accent-soft: #e5eefa;
+  --on-accent: #ffffff;
+  --progress: #2a78d6;
+  --progress-track: #dce8f8;
+  --income: #0b7a2f;
+  --good: #0b7a2f;
+  --good-soft: #e3f3e7;
+  --warn: #8f5b00;
+  --warn-soft: #fcf1d9;
+  --danger: #c42b2b;
+  --danger-soft: #fbe9e9;
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-ideal: #8a8883;
+  --grid: #ecebe6;
+  --axis: #c3c2b7;
+  --backdrop: rgb(0 0 0 / 0.32);
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 4px 16px rgb(0 0 0 / 0.04);
+  --sheet-shadow: 0 -8px 32px rgb(0 0 0 / 0.12);
+
+  /* Updated at runtime from visualViewport (see useKeyboardInset). */
+  --kb: 0px;
+  --vvh: 100dvh;
+}
+
+:root.dark {
+  color-scheme: dark;
+  --bg: #000000;
+  --surface: #1c1c1e;
+  --surface-2: #2c2c2e;
+  --surface-3: #3a3a3c;
+  --ink: #ffffff;
+  --ink-2: #d1d1d6;
+  --ink-3: #9d9da3;
+  --hairline: #38383a;
+  --accent: #256abf;
+  --accent-ink: #72aef2;
+  --accent-soft: #1b2b40;
+  --on-accent: #ffffff;
+  --progress: #3987e5;
+  --progress-track: #1e3350;
+  --income: #3ddc6e;
+  --good: #3ddc6e;
+  --good-soft: #15301d;
+  --warn: #ffbd4a;
+  --warn-soft: #3a2b10;
+  --danger: #ff6b63;
+  --danger-soft: #3d1b1a;
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-ideal: #8e8e93;
+  --grid: #2c2c2e;
+  --axis: #48484a;
+  --backdrop: rgb(0 0 0 / 0.55);
+  --shadow: none;
+  --sheet-shadow: 0 -8px 32px rgb(0 0 0 / 0.5);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-hairline: var(--hairline);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-on-accent: var(--on-accent);
+  --color-progress: var(--progress);
+  --color-progress-track: var(--progress-track);
+  --color-income: var(--income);
+  --color-good: var(--good);
+  --color-good-soft: var(--good-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-series-1: var(--series-1);
+  --color-series-2: var(--series-2);
+  --font-sans: system-ui, -apple-system, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    background: var(--bg);
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior-y: none;
+    /* Horizontal safe areas (landscape) are handled per-container. */
+    overflow-x: hidden;
+  }
+
+  button,
+  a,
+  input,
+  select,
+  textarea,
+  label {
+    touch-action: manipulation;
+  }
+
+  button {
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* iOS zooms into inputs below 16px; keep all form text >= 16px. */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--progress);
+    outline-offset: 2px;
+    border-radius: 8px;
+  }
+
+  input[type='date'] {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  input[type='date']::-webkit-date-and-time-value {
+    text-align: left;
+  }
+}
+
+@layer components {
+  .card {
+    background: var(--surface);
+    border-radius: 22px;
+    box-shadow: var(--shadow);
+  }
+
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .field {
+    display: block;
+    width: 100%;
+    min-height: 48px;
+    padding: 0 14px;
+    border-radius: 14px;
+    background: var(--surface-2);
+    color: var(--ink);
+    border: 1px solid transparent;
+    outline: none;
+  }
+
+  .field:focus {
+    border-color: var(--progress);
+    background: var(--surface);
+  }
+
+  .field[aria-invalid='true'] {
+    border-color: var(--danger);
+  }
+
+  .page-x {
+    padding-left: max(env(safe-area-inset-left), 20px);
+    padding-right: max(env(safe-area-inset-right), 20px);
+  }
+
+  .pressable {
+    transition:
+      transform 120ms ease,
+      background-color 120ms ease,
+      opacity 120ms ease;
+  }
+
+  .pressable:active {
+    transform: scale(0.97);
+  }
+
+  /* Bottom sheet: anchored to the visual viewport bottom (above the keyboard). */
+  .sheet-panel {
+    bottom: var(--kb);
+    max-height: calc(var(--vvh) - max(env(safe-area-inset-top), 16px) - 8px);
+    box-shadow: var(--sheet-shadow);
+  }
+
+  .sheet-bottom-pad {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 12px);
+  }
+
+  html[data-kb='open'] .sheet-bottom-pad {
+    padding-bottom: 10px;
+  }
+
+  .sr-only-focusable:not(:focus) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pop-in {
+  from {
+    transform: scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.anim-sheet {
+  animation: sheet-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.anim-fade {
+  animation: fade-in 160ms ease-out;
+}
+
+.anim-pop {
+  animation: pop-in 160ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}
+
+/* Recharts: keep chart text on text tokens and avoid focus outlines on SVG surface. */
+.recharts-wrapper,
+.recharts-surface {
+  outline: none;
+}
+
+.recharts-cartesian-axis-tick-value {
+  fill: var(--ink-3);
+  font-size: 11px;
+}
