@@ -267,9 +267,18 @@ test('Home shortcuts open the グラフ tab at the right section', async ({ page
     .poll(async () => Math.round((await page.locator('#outlook').boundingBox())!.y), { timeout: 4000 })
     .toBeLessThanOrEqual(safeTop + 30);
 
-  // Tapping the tab itself starts at the top (charts first).
+  // Tapping the tab itself starts at the top (charts first). The earlier jump must not
+  // pull the page back down to 見通し when the layout changes afterwards.
   await goTab(page, 'ホーム');
   await goTab(page, 'グラフ');
+  await page.evaluate(async () => {
+    window.scrollTo(0, 0);
+    const spacer = document.body.appendChild(document.createElement('div'));
+    spacer.style.height = '1px';
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    spacer.remove();
+  });
+  expect(await page.evaluate(() => window.scrollY), 'stays at the top after a layout change').toBe(0);
   await expectInFirstScreen(page, 'savings-chart');
 });
 
