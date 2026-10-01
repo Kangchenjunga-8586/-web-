@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
 import { effectiveSafeArea, emulateSafeArea, expectNoHorizontalScroll, FIXED_NOW, goTab } from './helpers';
 import { demoBackup } from './seed';
@@ -26,6 +26,16 @@ async function shot(page: Page, name: string, fullPage = false) {
   if (test.info().project.name.includes('webkit')) return;
   await page.waitForTimeout(250); // let sheet/fade animations settle
   await page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage });
+}
+
+async function shotEl(locator: Locator, name: string) {
+  if (test.info().project.name.includes('webkit')) return;
+  // Center it so the fixed tab bar does not cover the element in the capture.
+  await locator.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+  // Park the pointer so no hover tooltip covers the chart (touch devices have no hover).
+  await locator.page().mouse.move(1, 1);
+  await locator.page().waitForTimeout(150);
+  await locator.screenshot({ path: `${SHOTS}/${name}.png` });
 }
 
 /** Simulates the iOS software keyboard by shrinking the visual viewport. */
@@ -116,6 +126,18 @@ for (const scheme of ['light', 'dark'] as const) {
       await shot(page, `${scheme}-02-home`);
       await shot(page, `${scheme}-03-home-full`, true);
 
+      // Savings chart close-up: full plan, then the zoomed "これまで" range.
+      const homeChart = page.locator('figure').filter({ has: page.getByTestId('savings-chart') });
+      await expect(homeChart).toContainText('目標');
+      await expect(homeChart.getByTestId('chart-completion')).toContainText('達成見込み');
+      await shotEl(homeChart, `${scheme}-03b-home-chart`);
+      await homeChart.getByRole('radio', { name: 'これまで' }).click();
+      await expect(homeChart.getByRole('radio', { name: 'これまで' })).toHaveAttribute('aria-checked', 'true');
+      await expect(homeChart.getByTestId('chart-gain')).toContainText('+¥206,610');
+      await expect(homeChart).toContainText('現在');
+      await expectTouchTargets(page);
+      await shotEl(homeChart, `${scheme}-03c-home-chart-sofar`);
+
       await goTab(page, '履歴');
       await expectNoHorizontalScroll(page);
       await expectSafeAreas(page);
@@ -135,6 +157,13 @@ for (const scheme of ['light', 'dark'] as const) {
       await expectTouchTargets(page);
       await shot(page, `${scheme}-07-plan`);
       await shot(page, `${scheme}-08-plan-full`, true);
+      // Per-day / per-week table: every recurring rule listed, totals and the surplus row.
+      const rateTable = page.getByTestId('rate-table');
+      await expect(rateTable.getByTestId('rate-recurring-income')).toContainText('+67,000');
+      await expect(rateTable.getByRole('rowheader', { name: 'アルバイト' })).toBeVisible();
+      await expect(rateTable.getByTestId('rate-surplus')).toBeVisible();
+      await shotEl(rateTable, `${scheme}-08b-plan-rate-table`);
+      await shotEl(page.locator('figure').filter({ has: page.getByTestId('savings-chart') }), `${scheme}-08c-plan-chart`);
 
       await goTab(page, '設定');
       await expectNoHorizontalScroll(page);
@@ -237,6 +266,14 @@ test('large text (Safari page zoom 125% ≈ 352pt wide) does not break layout', 
     await goTab(page, tab);
     await expectNoHorizontalScroll(page);
   }
+  // The 1日/1週/1か月 table must not spill numbers into neighbouring cells.
+  await goTab(page, 'プラン');
+  const table = page.getByTestId('rate-table');
+  const overflowing = await table.locator('td').evaluateAll((cells) =>
+    cells.filter((c) => c.scrollWidth > c.clientWidth + 1).map((c) => c.textContent),
+  );
+  expect(overflowing, 'rate table cells overflow').toEqual([]);
+  await shotEl(table, 'light-18b-zoomed-rate-table');
   await goTab(page, 'ホーム');
   await shot(page, 'light-18-zoomed-home');
 });

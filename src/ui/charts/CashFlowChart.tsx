@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { monthlySeries, type MonthSummary } from '../../domain/calculations';
 import { formatMonthJa, formatMonthShort, monthKey } from '../../domain/dates';
 import { formatSignedYen, formatYen, formatYenCompact } from '../../domain/money';
@@ -11,6 +11,37 @@ const MIN_MONTHS = 3;
 
 function Swatch({ color }: { color: string }) {
   return <span className="inline-block size-2.5 shrink-0 rounded-[3px]" style={{ background: color }} aria-hidden="true" />;
+}
+
+/** Value on the cap of the latest month's bars only (selective direct labels). */
+function LatestValueLabel(props: {
+  lastIndex: number;
+  index?: number;
+  x?: number | string;
+  y?: number | string;
+  width?: number | string;
+  value?: number | string;
+}) {
+  const { lastIndex, index, value } = props;
+  const x = Number(props.x ?? 0);
+  const y = Number(props.y ?? 0);
+  const width = Number(props.width ?? 0);
+  if (index !== lastIndex || !value) return null;
+  return (
+    <text
+      x={x + width / 2}
+      y={y - 6}
+      textAnchor="middle"
+      fontSize={11}
+      fontWeight={600}
+      fill="var(--ink-2)"
+      stroke="var(--surface)"
+      strokeWidth={3}
+      paintOrder="stroke"
+    >
+      {formatYenCompact(Number(value)).replace('¥', '')}
+    </text>
+  );
 }
 
 function CashTooltip({ active, payload }: { active?: boolean; payload?: { payload: MonthSummary }[] }) {
@@ -49,7 +80,7 @@ export default function CashFlowChart() {
 
   return (
     <figure className="m-0">
-      <div className="flex items-center gap-4 px-3 pt-2 pb-1 text-[12px] text-ink-2" aria-hidden="true">
+      <div className="flex items-center gap-4 px-3 pt-1 pb-1 text-[13px] text-ink-2" aria-hidden="true">
         <span className="flex items-center gap-1.5">
           <Swatch color="var(--series-1)" />
           収入
@@ -59,15 +90,19 @@ export default function CashFlowChart() {
           支出
         </span>
       </div>
-      <div style={{ height: 190 }} data-testid="cashflow-chart" aria-hidden="true">
+      <div style={{ height: 220 }} data-testid="cashflow-chart" aria-hidden="true">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={series} margin={{ top: 8, right: 8, bottom: 0, left: 0 }} barGap={2} barCategoryGap="26%">
+          <BarChart data={series} margin={{ top: 22, right: 8, bottom: 2, left: 2 }} barGap={2} barCategoryGap="24%">
             <CartesianGrid vertical={false} stroke="var(--grid)" />
-            <XAxis dataKey="month" tickFormatter={formatMonthShort} tickLine={false} axisLine={{ stroke: 'var(--axis)' }} tickMargin={6} />
-            <YAxis width={46} domain={y.domain} ticks={y.ticks} allowDecimals={false} tickFormatter={formatYenCompact} tickLine={false} axisLine={false} />
+            <XAxis dataKey="month" tickFormatter={formatMonthShort} tickLine={false} axisLine={{ stroke: 'var(--axis)' }} tickMargin={8} />
+            <YAxis width={50} domain={y.domain} ticks={y.ticks} allowDecimals={false} tickFormatter={formatYenCompact} tickLine={false} axisLine={false} />
             <Tooltip content={<CashTooltip />} cursor={{ fill: 'var(--surface-2)' }} isAnimationActive={false} />
-            <Bar dataKey="income" fill="var(--series-1)" radius={[4, 4, 0, 0]} maxBarSize={14} isAnimationActive={false} />
-            <Bar dataKey="expense" fill="var(--series-2)" radius={[4, 4, 0, 0]} maxBarSize={14} isAnimationActive={false} />
+            <Bar dataKey="income" fill="var(--series-1)" radius={[4, 4, 0, 0]} maxBarSize={18} isAnimationActive={false}>
+              <LabelList dataKey="income" content={<LatestValueLabel lastIndex={series.length - 1} />} />
+            </Bar>
+            <Bar dataKey="expense" fill="var(--series-2)" radius={[4, 4, 0, 0]} maxBarSize={18} isAnimationActive={false}>
+              <LabelList dataKey="expense" content={<LatestValueLabel lastIndex={series.length - 1} />} />
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>

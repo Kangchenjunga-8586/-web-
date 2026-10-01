@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { makeGoal, makeRule, makeTx } from '../test/fixtures';
 import {
   assessPace,
+  buildRateTable,
   computeCurrentSavings,
   computeDashboard,
   computeForecast,
@@ -10,7 +11,9 @@ import {
   monthlySeries,
   progressPercent,
   projectionSeries,
+  ratesFromMonthly,
   requiredPerPeriod,
+  rulePerDay,
   savingsHistory,
   summarizeMonth,
   sumTotals,
@@ -44,6 +47,8 @@ describe('goal metrics', () => {
     expect(m.requiredSavingsPerMonth).toBe(31_602);
     // 190,000 / (183 / 7 weeks) = 7,267.76 → ceil
     expect(m.requiredSavingsPerWeek).toBe(7_268);
+    // 190,000 / 183 days = 1,038.25 → ceil
+    expect(m.requiredSavingsPerDay).toBe(1_039);
     expect(m.achieved).toBe(false);
     expect(m.targetDatePassed).toBe(false);
   });
@@ -258,6 +263,90 @@ describe('pace assessment', () => {
     expect(p.basis).toBe('pace');
     expect(p.status).toBe('behind');
     expect(p.reasons.some((r) => r.includes('30日分'))).toBe(true);
+  });
+});
+
+describe('rate table (1日 / 1週 / 1か月)', () => {
+  // 1 month = 30.436875 days.
+  const rules = [
+    makeRule({ id: 'job', name: 'アルバイト', amount: 62_000, dayOfMonth: 25, startDate: '2026-01-01' }),
+    makeRule({ id: 'pocket', name: 'お小遣い', amount: 5_000, dayOfMonth: 1, startDate: '2026-01-01' }),
+    makeRule({ id: 'phone', type: 'expense', name: 'スマホ代', amount: 2_980, categoryId: 'exp-subscription', dayOfMonth: 27, startDate: '2026-01-01' }),
+    makeRule({ id: 'ai', type: 'expense', name: 'Claude Pro', amount: 3_000, categoryId: 'exp-subscription', dayOfMonth: 12, startDate: '2026-01-01' }),
+  ];
+
+  function table(goal = makeGoal({ startDate: TODAY, createdAt: '2026-06-01T00:00:00.000Z' }), txs: Transaction[] = [], rs = rules) {
+    const metrics = computeGoalMetrics(goal, txs, TODAY);
+    const forecast = computeForecast(goal, txs, rs, TODAY);
+    return buildRateTable(metrics, forecast, rs, TODAY);
+  }
+
+  it('splits monthly amounts into per-day and per-week figures', () => {
+    // 62,000 / 30.436875 = 2,037.00 /日, ×7 = 14,259.0 /週
+    expect(ratesFromMonthly(62_000)).toEqual({ day: 2_037, week: 14_259, month: 62_000 });
+    expect(ratesFromMonthly(-30_437)).toEqual({ day: -1_000, week: -7_000, month: -30_437 });
+    expect(ratesFromMonthly(0)).toEqual({ day: 0, week: 0, month: 0 });
+  });
+
+  it('uses the nominal frequency so weekly and yearly rules read naturally', () => {
+    expect(rulePerDay({ frequency: 'weekly', amount: 1_000 }) * 7).toBeCloseTo(1_000);
+    const weekly = makeRule({ id: 'w', name: '週払い', frequency: 'weekly', dayOfWeek: 5, amount: 1_000, startDate: '2026-01-01' });
+    const yearly = makeRule({ id: 'y', name: 'ボーナス', frequency: 'yearly', month: 12, dayOfMonth: 10, amount: 120_000, startDate: '2026-01-01' });
+    const t = table(undefined, [], [weekly, yearly]);
+    expect(t.recurringIncome.rules).toEqual([
+      // 120,000 / 12 = 10,000 /月 → 328.55 /日 → 2,299.85 /週
+      { ruleId: 'y', name: 'ボーナス', cells: { day: 329, week: 2_300, month: 10_000 } },
+      // 1,000 /週 → 142.86 /日 → 4,348.1 /月
+      { ruleId: 'w', name: '週払い', cells: { day: 143, week: 1_000, month: 4_348 } },
+    ]);
+  });
+
+  it('lists each recurring rule and totals that add up column by column', () => {
+    const t = table(undefined, [makeTx({ type: 'expense', amount: 90_000, date: '2026-08-01' })]);
+    expect(t.recurringIncome.rules.map((r) => [r.name, r.cells])).toEqual([
+      ['アルバイト', { day: 2_037, week: 14_259, month: 62_000 }],
+      ['お小遣い', { day: 164, week: 1_150, month: 5_000 }],
+    ]);
+    expect(t.recurringIncome.total).toEqual({ day: 2_201, week: 15_409, month: 67_000 });
+    expect(t.recurringExpense.rules.map((r) => [r.name, r.cells])).toEqual([
+      ['Claude Pro', { day: -99, week: -690, month: -3_000 }],
+      ['スマホ代', { day: -98, week: -685, month: -2_980 }],
+    ]);
+    expect(t.recurringExpense.total).toEqual({ day: -197, week: -1_375, month: -5_980 });
+    // 90,000 over 90 days of history = ¥1,000 per day of other spending.
+    expect(t.variableExpense).toEqual({ day: -1_000, week: -7_000, month: -30_437 });
+    expect(t.variableIncome).toEqual({ day: 0, week: 0, month: 0 });
+    expect(t.netIncludesVariable).toBe(true);
+    expect(t.net).toEqual({ day: 1_004, week: 7_034, month: 30_583 });
+    // 250,000 remaining over 183 days.
+    expect(t.required).toEqual({ day: 1_367, week: 9_563, month: 41_581 });
+    expect(t.surplus).toEqual({ day: -363, week: -2_529, month: -10_998 });
+  });
+
+  it('shows recurring-only net and no surplus while history is insufficient', () => {
+    const fresh = makeGoal({ startDate: TODAY, createdAt: '2026-09-30T01:00:00.000Z' });
+    const t = table(fresh);
+    expect(t.variableIncome).toBeNull();
+    expect(t.variableExpense).toBeNull();
+    expect(t.netIncludesVariable).toBe(false);
+    expect(t.net).toEqual({ day: 2_004, week: 14_034, month: 61_020 });
+    expect(t.required).not.toBeNull();
+    expect(t.surplus).toBeNull();
+    expect(t.daysUntilReady).toBe(29);
+  });
+
+  it('drops disabled and finished rules, and the requirement once achieved or overdue', () => {
+    const ended = makeRule({ id: 'old', name: '旧バイト', amount: 50_000, dayOfMonth: 10, startDate: '2026-01-01', endDate: '2026-09-15' });
+    const paused = makeRule({ id: 'p', name: '休止中', amount: 9_000, dayOfMonth: 10, startDate: '2026-01-01', enabled: false });
+    const t = table(undefined, [], [ended, paused]);
+    expect(t.recurringIncome.rules).toEqual([]);
+    expect(t.recurringIncome.total).toEqual({ day: 0, week: 0, month: 0 });
+
+    const achieved = table(makeGoal({ initialSavings: 500_000, startDate: TODAY, createdAt: '2026-06-01T00:00:00.000Z' }));
+    expect(achieved.required).toBeNull();
+    expect(achieved.surplus).toBeNull();
+    const overdue = table(makeGoal({ startDate: '2026-06-01', targetDate: '2026-09-01', createdAt: '2026-06-01T00:00:00.000Z' }));
+    expect(overdue.required).toBeNull();
   });
 });
 

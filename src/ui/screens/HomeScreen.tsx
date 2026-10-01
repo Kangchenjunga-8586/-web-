@@ -115,15 +115,34 @@ export function HomeScreen() {
 
       {/* Next action: how much to save. */}
       {!metrics.achieved && !metrics.targetDatePassed && (
-        <section className="card mt-3 grid grid-cols-2 divide-x divide-hairline py-4" aria-label="必要な貯金額">
-          <div className="px-5">
-            <p className="text-[13px] text-ink-3">毎月の目標貯金</p>
-            <Money value={metrics.requiredSavingsPerMonth} size="xl" suffix="/月" />
+        <section className="card mt-3 px-4 pt-2 pb-4" aria-label="必要な貯金額">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-[13px] font-semibold text-ink-3">目標までに必要な貯金</h2>
+            <button
+              type="button"
+              onClick={() => navigate('plan')}
+              className="-mr-1 flex min-h-[44px] items-center gap-0.5 px-1 text-[13px] text-accent-ink"
+            >
+              収支の目安
+              <ChevronRight size={14} />
+            </button>
           </div>
-          <div className="px-5">
-            <p className="text-[13px] text-ink-3">毎週なら</p>
-            <Money value={metrics.requiredSavingsPerWeek} size="xl" suffix="/週" />
-          </div>
+          <dl className="grid grid-cols-3 divide-x divide-hairline">
+            {(
+              [
+                ['1日あたり', metrics.requiredSavingsPerDay, 'required-day'],
+                ['1週あたり', metrics.requiredSavingsPerWeek, 'required-week'],
+                ['1か月あたり', metrics.requiredSavingsPerMonth, 'required-month'],
+              ] as const
+            ).map(([label, value, testId]) => (
+              <div key={testId} className="min-w-0 px-3 first:pl-0 last:pr-0">
+                <dt className="text-[12px] text-ink-3">{label}</dt>
+                <dd data-testid={testId}>
+                  <Money value={value} size="stat" />
+                </dd>
+              </div>
+            ))}
+          </dl>
         </section>
       )}
 
@@ -165,10 +184,9 @@ export function HomeScreen() {
         </dl>
       </section>
 
-      <section className="card mt-3 px-2 pt-4 pb-2" aria-label="貯金の推移">
-        <h2 className="px-3 text-[15px] font-semibold">貯金の推移</h2>
-        <Suspense fallback={<ChartFallback height={210} />}>
-          <SavingsChart height={210} />
+      <section className="card mt-3 px-2 pt-3 pb-2" aria-label="貯金の推移">
+        <Suspense fallback={<ChartFallback height={310} />}>
+          <SavingsChart height={240} title="貯金の推移" />
         </Suspense>
       </section>
 
