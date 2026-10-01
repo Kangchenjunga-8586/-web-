@@ -65,7 +65,7 @@ test('Scenario 4: recurring income is generated automatically, never duplicated'
   await expect(page.getByTestId('tx-row').filter({ hasText: 'アルバイト' })).toHaveCount(1);
 
   // Plan: the monthly income is split per day / week (60,000 ÷ 30.436875 days = 1,971/日).
-  await goTab(page, 'プラン');
+  await goTab(page, 'グラフ');
   const table = page.getByTestId('rate-table');
   await expect(table.getByTestId('rate-recurring-income')).toContainText('+1,971');
   await expect(table.getByTestId('rate-recurring-income')).toContainText('+13,799');
@@ -89,7 +89,7 @@ test('Scenario 5: fixed expense is generated automatically', async ({ page }) =>
   await expect(page.getByTestId('toast')).toContainText('1件を自動記録しました');
   await goTab(page, 'ホーム');
   await expectMoney(page, 'current-savings', '¥197,000');
-  await goTab(page, 'プラン');
+  await goTab(page, 'グラフ');
   await expect(page.getByText('固定支出').first()).toBeVisible();
 });
 

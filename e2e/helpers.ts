@@ -62,7 +62,7 @@ export async function addTransaction(
   await expect(sheet).toBeHidden();
 }
 
-export async function goTab(page: Page, name: 'ホーム' | '履歴' | 'プラン' | '設定') {
+export async function goTab(page: Page, name: 'ホーム' | '履歴' | 'グラフ' | '設定') {
   await page.getByRole('navigation', { name: 'メインメニュー' }).getByRole('button', { name }).click();
 }
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { scrollToAnchor } from '../lib/scrollToAnchor';
 
 export const TAB_ROUTES = ['home', 'history', 'plan', 'settings'] as const;
 export type TabRoute = (typeof TAB_ROUTES)[number];
@@ -21,6 +22,14 @@ export function parentOf(route: Route): TabRoute {
 const hrefFor = (route: Route) => (route === 'home' ? '#/' : `#/${route}`);
 
 let pushedSubRoute = false;
+let pendingAnchor: string | null = null;
+
+/** Section id requested together with the last navigation (consumed once by the screen). */
+export function takePendingAnchor(): string | null {
+  const anchor = pendingAnchor;
+  pendingAnchor = null;
+  return anchor;
+}
 
 /** Minimal hash router: tabs replace history, sub-pages push so Safari back works. */
 export function useRoute() {
@@ -35,11 +44,13 @@ export function useRoute() {
     return () => window.removeEventListener('hashchange', onChange);
   }, []);
 
-  const navigate = useCallback((next: Route) => {
+  const navigate = useCallback((next: Route, anchor?: string) => {
     if (parseHash(window.location.hash) === next) {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      if (anchor) scrollToAnchor(anchor);
+      else window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
+    pendingAnchor = anchor ?? null;
     if ((SUB_ROUTES as readonly string[]).includes(next)) {
       pushedSubRoute = true;
       window.location.hash = hrefFor(next);

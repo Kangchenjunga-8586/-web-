@@ -32,9 +32,22 @@ export function ScreenHeader({ title, subtitle, trailing, onBack, backLabel = 'æ
   );
 }
 
-export function Section({ title, children, footer, className = '' }: { title?: string; children: ReactNode; footer?: ReactNode; className?: string }) {
+export function Section({
+  title,
+  children,
+  footer,
+  className = 'mt-6',
+  id,
+}: {
+  title?: string;
+  children: ReactNode;
+  footer?: ReactNode;
+  className?: string;
+  /** Anchor target for navigate(route, id); clears the status bar when scrolled to. */
+  id?: string;
+}) {
   return (
-    <section className={`mt-6 ${className}`}>
+    <section id={id} className={`scroll-mt-[calc(max(env(safe-area-inset-top),12px)+8px)] ${className}`}>
       {title && <h2 className="mb-2 px-1 text-[13px] font-semibold text-ink-3">{title}</h2>}
       <div className="card overflow-hidden">{children}</div>
       {footer && <p className="mt-2 px-1 text-[13px] leading-snug text-ink-3">{footer}</p>}

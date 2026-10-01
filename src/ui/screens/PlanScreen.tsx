@@ -1,16 +1,18 @@
-import { lazy, Suspense, useMemo, type ReactNode } from 'react';
+import { Suspense, useEffect, useMemo, type ReactNode } from 'react';
 import { buildRateTable, MIN_HISTORY_DAYS } from '../../domain/calculations';
-import { formatDateSlash } from '../../domain/dates';
+import { formatDateSlash, formatMonthShort, monthKey } from '../../domain/dates';
 import { useApp } from '../AppContext';
 import { Button } from '../components/Button';
 import { EmptyState, Row, ScreenHeader, Section } from '../components/layout';
 import { Money } from '../components/Money';
 import { PaceIcon } from '../components/PaceBadge';
 import { RateTable } from '../components/RateTable';
+import { CategoryBreakdown } from '../charts/CategoryBreakdown';
 import { ChartFallback } from '../charts/ChartFallback';
+import { CashFlowChart, SavingsChart } from '../charts/lazy';
+import { takePendingAnchor } from '../hooks/useRoute';
+import { scrollToAnchor } from '../lib/scrollToAnchor';
 
-const CashFlowChart = lazy(() => import('../charts/CashFlowChart'));
-const SavingsChart = lazy(() => import('../charts/SavingsChart'));
 
 function Stat({ label, children, testId }: { label: string; children: ReactNode; testId?: string }) {
   return (
@@ -22,7 +24,7 @@ function Stat({ label, children, testId }: { label: string; children: ReactNode;
 }
 
 export function PlanScreen() {
-  const { goal, dashboard, snapshot, today, openSheet, navigate } = useApp();
+  const { goal, dashboard, snapshot, today, categoriesById, openSheet, navigate } = useApp();
   const { metrics, forecast, pace } = dashboard;
   const ready = forecast.status === 'ok';
   const rateTable = useMemo(
@@ -30,10 +32,21 @@ export function PlanScreen() {
     [metrics, forecast, snapshot.recurringRules, today],
   );
 
+  const monthExpenses = useMemo(
+    () => snapshot.transactions.filter((t) => t.type === 'expense' && monthKey(t.date) === monthKey(today)),
+    [snapshot.transactions, today],
+  );
+
+  // Arrived from a Home shortcut (e.g. 収支の目安 / 見通し): jump to that section.
+  useEffect(() => {
+    const anchor = takePendingAnchor();
+    if (anchor) scrollToAnchor(anchor);
+  }, []);
+
   return (
     <main className="mx-auto max-w-[560px]">
       <ScreenHeader
-        title="プラン"
+        title="グラフ"
         trailing={
           <Button variant="tinted" onClick={() => openSheet({ kind: 'goal' })} data-testid="edit-goal">
             目標を編集
@@ -41,39 +54,38 @@ export function PlanScreen() {
         }
       />
       <div className="page-x">
-        <section className="card p-5" aria-label="目標">
-          <div className="flex items-center gap-3">
-            <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-accent-soft text-[22px]" aria-hidden="true">
-              🎯
-            </span>
-            <h2 className="min-w-0 flex-1 truncate text-[20px] font-bold">{goal.name}</h2>
+        {/* Charts first: one tap on the グラフ tab shows them without scrolling. */}
+        <Section title="貯金の推移" id="savings" className="mt-1">
+          <div className="px-2 pt-3 pb-2">
+            <Suspense fallback={<ChartFallback height={400} />}>
+              <SavingsChart height={300} />
+            </Suspense>
           </div>
-          <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3.5">
-            <Stat label="目標金額">
-              <Money value={goal.targetAmount} size="lg" />
-            </Stat>
-            <Stat label="現在額" testId="plan-current">
-              <Money value={metrics.currentSavings} size="lg" />
-            </Stat>
-            <Stat label="残り" testId="plan-remaining">
-              <Money value={metrics.remainingAmount} size="lg" />
-            </Stat>
-            <Stat label="達成率">
-              <span className="num text-[22px] font-semibold">{metrics.progressPercent}%</span>
-            </Stat>
-            <Stat label="貯金開始日">
-              <span className="num text-[16px] font-semibold">{formatDateSlash(goal.startDate)}</span>
-            </Stat>
-            <Stat label="購入目標日">
-              <span className="num text-[16px] font-semibold">{formatDateSlash(goal.targetDate)}</span>
-              <span className="block text-[13px] text-ink-3">
-                {metrics.daysRemaining >= 0 ? `あと${metrics.daysRemaining}日` : `${-metrics.daysRemaining}日経過`}
-              </span>
-            </Stat>
-          </dl>
-        </section>
+        </Section>
 
-        <Section title="見通し">
+        <Section title="月別の収支" id="monthly">
+          {snapshot.transactions.length === 0 ? (
+            <EmptyState emoji="📊" title="まだ記録がありません" message="収入や支出を記録すると、月ごとの推移が表示されます。" />
+          ) : (
+            <div className="px-2 pt-3 pb-2">
+              <Suspense fallback={<ChartFallback height={420} />}>
+                <CashFlowChart />
+              </Suspense>
+            </div>
+          )}
+        </Section>
+
+        <Section title={`今月の支出（${formatMonthShort(monthKey(today))}・カテゴリ別）`} id="categories">
+          {monthExpenses.length === 0 ? (
+            <EmptyState emoji="🧾" title="今月の支出はまだありません" />
+          ) : (
+            <div className="px-3 py-3">
+              <CategoryBreakdown expenses={monthExpenses} categoriesById={categoriesById} />
+            </div>
+          )}
+        </Section>
+
+        <Section title="見通し" id="outlook">
           <div className="p-5" data-testid="plan-pace">
             <div className="flex items-start gap-3">
               <PaceIcon status={pace.status} />
@@ -121,28 +133,42 @@ export function PlanScreen() {
           </div>
         </Section>
 
-        <Section title="1日・1週・1か月の収支">
+        <Section title="1日・1週・1か月の収支" id="rates">
           <RateTable table={rateTable} />
         </Section>
 
-        <Section title="貯金の推移">
-          <div className="px-2 pt-3 pb-2">
-            <Suspense fallback={<ChartFallback height={370} />}>
-              <SavingsChart height={300} />
-            </Suspense>
-          </div>
-        </Section>
-
-        <Section title="月別の収支">
-          {snapshot.transactions.length === 0 ? (
-            <EmptyState emoji="📊" title="まだ記録がありません" message="収入や支出を記録すると、月ごとの推移が表示されます。" />
-          ) : (
-            <div className="px-2 pt-3 pb-2">
-              <Suspense fallback={<ChartFallback height={220} />}>
-                <CashFlowChart />
-              </Suspense>
+        <Section title="目標" id="goal">
+          <div className="p-5">
+            <div className="flex items-center gap-3">
+              <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-accent-soft text-[22px]" aria-hidden="true">
+                🎯
+              </span>
+              <h3 className="min-w-0 flex-1 truncate text-[20px] font-bold">{goal.name}</h3>
             </div>
-          )}
+            <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3.5">
+              <Stat label="目標金額">
+                <Money value={goal.targetAmount} size="lg" />
+              </Stat>
+              <Stat label="現在額" testId="plan-current">
+                <Money value={metrics.currentSavings} size="lg" />
+              </Stat>
+              <Stat label="残り" testId="plan-remaining">
+                <Money value={metrics.remainingAmount} size="lg" />
+              </Stat>
+              <Stat label="達成率">
+                <span className="num text-[22px] font-semibold">{metrics.progressPercent}%</span>
+              </Stat>
+              <Stat label="貯金開始日">
+                <span className="num text-[16px] font-semibold">{formatDateSlash(goal.startDate)}</span>
+              </Stat>
+              <Stat label="購入目標日">
+                <span className="num text-[16px] font-semibold">{formatDateSlash(goal.targetDate)}</span>
+                <span className="block text-[13px] text-ink-3">
+                  {metrics.daysRemaining >= 0 ? `あと${metrics.daysRemaining}日` : `${-metrics.daysRemaining}日経過`}
+                </span>
+              </Stat>
+            </dl>
+          </div>
         </Section>
 
         <Section title="定期的なお金">

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import type { Route, TabRoute } from '../hooks/useRoute';
 import { parentOf } from '../hooks/useRoute';
-import { GearIcon, HomeIcon, ListIcon, PlusIcon, TargetIcon } from './Icons';
+import { ChartIcon, GearIcon, HomeIcon, ListIcon, PlusIcon } from './Icons';
 
 interface Props {
   route: Route;
@@ -12,7 +12,7 @@ interface Props {
 const TABS: { route: TabRoute; label: string; icon: ReactNode }[] = [
   { route: 'home', label: 'ホーム', icon: <HomeIcon /> },
   { route: 'history', label: '履歴', icon: <ListIcon /> },
-  { route: 'plan', label: 'プラン', icon: <TargetIcon /> },
+  { route: 'plan', label: 'グラフ', icon: <ChartIcon /> },
   { route: 'settings', label: '設定', icon: <GearIcon /> },
 ];
 

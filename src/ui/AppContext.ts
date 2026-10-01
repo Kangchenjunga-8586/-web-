@@ -19,7 +19,8 @@ export interface AppContextValue {
   dashboard: Dashboard;
   categoriesById: Map<string, Category>;
   route: Route;
-  navigate: (route: Route) => void;
+  /** Switches screens; `anchor` scrolls to a section id on the new screen. */
+  navigate: (route: Route, anchor?: string) => void;
   back: () => void;
   /** Opens the add sheet and focuses the amount field in the same tap (iOS keyboard). */
   openAdd: (type: TxType) => void;
