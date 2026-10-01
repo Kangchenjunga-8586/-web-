@@ -1,14 +1,16 @@
-import { lazy, Suspense, type ReactNode } from 'react';
-import { MIN_HISTORY_DAYS } from '../../domain/calculations';
+import { lazy, Suspense, useMemo, type ReactNode } from 'react';
+import { buildRateTable, MIN_HISTORY_DAYS } from '../../domain/calculations';
 import { formatDateSlash } from '../../domain/dates';
 import { useApp } from '../AppContext';
 import { Button } from '../components/Button';
 import { EmptyState, Row, ScreenHeader, Section } from '../components/layout';
 import { Money } from '../components/Money';
 import { PaceIcon } from '../components/PaceBadge';
+import { RateTable } from '../components/RateTable';
 import { ChartFallback } from '../charts/ChartFallback';
 
 const CashFlowChart = lazy(() => import('../charts/CashFlowChart'));
+const SavingsChart = lazy(() => import('../charts/SavingsChart'));
 
 function Stat({ label, children, testId }: { label: string; children: ReactNode; testId?: string }) {
   return (
@@ -20,12 +22,13 @@ function Stat({ label, children, testId }: { label: string; children: ReactNode;
 }
 
 export function PlanScreen() {
-  const { goal, dashboard, snapshot, openSheet, navigate } = useApp();
+  const { goal, dashboard, snapshot, today, openSheet, navigate } = useApp();
   const { metrics, forecast, pace } = dashboard;
   const ready = forecast.status === 'ok';
-
-  const incomeRules = snapshot.recurringRules.filter((r) => r.type === 'income' && r.enabled).length;
-  const expenseRules = snapshot.recurringRules.filter((r) => r.type === 'expense' && r.enabled).length;
+  const rateTable = useMemo(
+    () => buildRateTable(metrics, forecast, snapshot.recurringRules, today),
+    [metrics, forecast, snapshot.recurringRules, today],
+  );
 
   return (
     <main className="mx-auto max-w-[560px]">
@@ -69,25 +72,6 @@ export function PlanScreen() {
             </Stat>
           </dl>
         </section>
-
-        {!metrics.achieved && !metrics.targetDatePassed && (
-          <Section title="目標日に間に合わせるには">
-            <dl className="grid grid-cols-2 divide-x divide-hairline py-4">
-              <div className="px-5">
-                <dt className="text-[13px] text-ink-3">毎月</dt>
-                <dd data-testid="plan-required-month">
-                  <Money value={metrics.requiredSavingsPerMonth} size="xl" suffix="/月" />
-                </dd>
-              </div>
-              <div className="px-5">
-                <dt className="text-[13px] text-ink-3">毎週</dt>
-                <dd data-testid="plan-required-week">
-                  <Money value={metrics.requiredSavingsPerWeek} size="xl" suffix="/週" />
-                </dd>
-              </div>
-            </dl>
-          </Section>
-        )}
 
         <Section title="見通し">
           <div className="p-5" data-testid="plan-pace">
@@ -137,27 +121,16 @@ export function PlanScreen() {
           </div>
         </Section>
 
-        <Section title="予測の内訳（1か月あたり）" footer={ready ? `変動収支は直近${forecast.historyDays}日間の記録の平均です。` : undefined}>
-          <Row title="定期収入" detail={`${incomeRules}件の有効なルール`} value={<Money value={forecast.recurringIncomeMonthly} signed size="sm" />} />
-          <Row title="固定支出" detail={`${expenseRules}件の有効なルール`} value={<Money value={-forecast.recurringExpenseMonthly} signed size="sm" />} />
-          <Row
-            title="その他の収入（平均）"
-            value={forecast.variableIncomeMonthly === null ? <span className="text-ink-3">記録中</span> : <Money value={forecast.variableIncomeMonthly} signed size="sm" />}
-          />
-          <Row
-            title="その他の支出（平均）"
-            value={forecast.variableExpenseMonthly === null ? <span className="text-ink-3">記録中</span> : <Money value={-forecast.variableExpenseMonthly} signed size="sm" />}
-          />
-          <Row
-            title={<span className="font-semibold">平均の純貯金</span>}
-            value={
-              forecast.averageMonthlyNetSavings === null ? (
-                <span className="text-ink-3">—</span>
-              ) : (
-                <Money value={forecast.averageMonthlyNetSavings} signed size="md" className={forecast.averageMonthlyNetSavings > 0 ? 'text-income' : 'text-danger'} />
-              )
-            }
-          />
+        <Section title="1日・1週・1か月の収支">
+          <RateTable table={rateTable} />
+        </Section>
+
+        <Section title="貯金の推移">
+          <div className="px-2 pt-3 pb-2">
+            <Suspense fallback={<ChartFallback height={370} />}>
+              <SavingsChart height={300} />
+            </Suspense>
+          </div>
         </Section>
 
         <Section title="月別の収支">

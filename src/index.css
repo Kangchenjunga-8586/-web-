@@ -296,6 +296,7 @@
 }
 
 .recharts-cartesian-axis-tick-value {
-  fill: var(--ink-3);
-  font-size: 11px;
+  fill: var(--ink-2);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }

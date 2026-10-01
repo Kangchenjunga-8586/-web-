@@ -12,7 +12,7 @@ import {
   type MonthKey,
 } from './dates';
 import { ceilYen, formatYen } from './money';
-import { recurringDeltasByDate, recurringNetBetween } from './recurring';
+import { occurrencesBetween, recurringDeltasByDate, recurringNetBetween } from './recurring';
 import type { Goal, ISODate, RecurringRule, Transaction, Yen } from './types';
 
 /** Minimum days of recorded history before variable spending is used for forecasts. */
@@ -72,6 +72,7 @@ export interface GoalMetrics {
   weeksRemaining: number;
   requiredSavingsPerMonth: Yen;
   requiredSavingsPerWeek: Yen;
+  requiredSavingsPerDay: Yen;
   /** Where a straight line from (startDate, initialSavings) to (targetDate, target) is today. */
   idealSavingsToday: Yen;
 }
@@ -107,6 +108,7 @@ export function computeGoalMetrics(goal: Goal, transactions: readonly Transactio
     weeksRemaining: positiveDays / 7,
     requiredSavingsPerMonth: requiredPerPeriod(remainingAmount, daysRemaining, AVG_DAYS_PER_MONTH),
     requiredSavingsPerWeek: requiredPerPeriod(remainingAmount, daysRemaining, 7),
+    requiredSavingsPerDay: requiredPerPeriod(remainingAmount, daysRemaining, 1),
     idealSavingsToday: idealSavingsOn(goal, today),
   };
 }
@@ -505,6 +507,135 @@ export function projectionSeries(
   }
   points.push({ date: goal.targetDate, balance: Math.round(projectBalance(model, goal.targetDate)) });
   return points;
+}
+
+// ---------------------------------------------------------------------------
+// Rate table (1日 / 1週 / 1か月)
+// ---------------------------------------------------------------------------
+
+/** Signed integer yen per day / week / month. */
+export interface RateCells {
+  day: Yen;
+  week: Yen;
+  month: Yen;
+}
+
+/**
+ * Splits a monthly amount into per-day and per-week figures. One month is the average
+ * Gregorian month (30.436875 days), the same basis as the forecast. Rounded per cell.
+ */
+export function ratesFromMonthly(monthly: number): RateCells {
+  return cellsFromPerDay(monthly / AVG_DAYS_PER_MONTH);
+}
+
+function addCells(a: RateCells, b: RateCells): RateCells {
+  return { day: a.day + b.day, week: a.week + b.week, month: a.month + b.month };
+}
+
+function subCells(a: RateCells, b: RateCells): RateCells {
+  return { day: a.day - b.day, week: a.week - b.week, month: a.month - b.month };
+}
+
+const ZERO_CELLS: RateCells = { day: 0, week: 0, month: 0 };
+
+export interface RateRuleRow {
+  ruleId: string;
+  name: string;
+  /** Signed: income positive, expense negative. */
+  cells: RateCells;
+}
+
+export interface RateGroup {
+  /** Column-wise sum of the rule rows, so the table always adds up. */
+  total: RateCells;
+  rules: RateRuleRow[];
+}
+
+export interface RateTable {
+  recurringIncome: RateGroup;
+  recurringExpense: RateGroup;
+  /** Average of manually recorded income/expense; null until enough history exists. */
+  variableIncome: RateCells | null;
+  variableExpense: RateCells | null;
+  /** Sum of the rows above (variable rows count as 0 while null). */
+  net: RateCells;
+  netIncludesVariable: boolean;
+  /** What must be saved to hit the target date; null when achieved or the date has passed. */
+  required: RateCells | null;
+  /** net − required (positive = 余裕, negative = 不足); only with a full forecast. */
+  surplus: RateCells | null;
+  historyDays: number;
+  daysUntilReady: number;
+}
+
+/**
+ * Nominal per-day amount of a rule from its frequency, so a weekly ¥1,000 rule reads exactly
+ * ¥1,000 / 1週 and a monthly ¥62,000 rule exactly ¥62,000 / 1か月.
+ */
+export function rulePerDay(rule: Pick<RecurringRule, 'frequency' | 'amount'>): number {
+  switch (rule.frequency) {
+    case 'weekly':
+      return rule.amount / 7;
+    case 'monthly':
+      return rule.amount / AVG_DAYS_PER_MONTH;
+    case 'yearly':
+      return rule.amount / 12 / AVG_DAYS_PER_MONTH;
+  }
+}
+
+/** A rule counts while it is enabled and still has an occurrence within the next 12 months. */
+export function ruleIsActive(rule: RecurringRule, today: ISODate): boolean {
+  return rule.enabled && occurrencesBetween(rule, addDays(today, 1), addMonths(today, 12)).length > 0;
+}
+
+function cellsFromPerDay(perDay: number): RateCells {
+  return {
+    day: Math.round(perDay) + 0,
+    week: Math.round(perDay * 7) + 0,
+    month: Math.round(perDay * AVG_DAYS_PER_MONTH) + 0,
+  };
+}
+
+function rateGroup(rules: readonly RecurringRule[], today: ISODate, sign: 1 | -1): RateGroup {
+  const rows: RateRuleRow[] = rules
+    .filter((rule) => ruleIsActive(rule, today))
+    .map((rule) => ({ rule, perDay: rulePerDay(rule) }))
+    .sort((a, b) => b.perDay - a.perDay || a.rule.name.localeCompare(b.rule.name, 'ja'))
+    .map(({ rule, perDay }) => ({ ruleId: rule.id, name: rule.name, cells: cellsFromPerDay(sign * perDay) }));
+  return { total: rows.reduce((sum, r) => addCells(sum, r.cells), ZERO_CELLS), rules: rows };
+}
+
+export function buildRateTable(
+  metrics: GoalMetrics,
+  forecast: Forecast,
+  rules: readonly RecurringRule[],
+  today: ISODate,
+): RateTable {
+  const recurringIncome = rateGroup(rules.filter((r) => r.type === 'income'), today, 1);
+  const recurringExpense = rateGroup(rules.filter((r) => r.type === 'expense'), today, -1);
+  const variableIncome = forecast.variableIncomeMonthly === null ? null : ratesFromMonthly(forecast.variableIncomeMonthly);
+  const variableExpense = forecast.variableExpenseMonthly === null ? null : ratesFromMonthly(-forecast.variableExpenseMonthly);
+  const net = [variableIncome, variableExpense].reduce<RateCells>(
+    (sum, cells) => (cells ? addCells(sum, cells) : sum),
+    addCells(recurringIncome.total, recurringExpense.total),
+  );
+  const netIncludesVariable = variableIncome !== null && variableExpense !== null;
+  const required =
+    metrics.achieved || metrics.targetDatePassed
+      ? null
+      : { day: metrics.requiredSavingsPerDay, week: metrics.requiredSavingsPerWeek, month: metrics.requiredSavingsPerMonth };
+  return {
+    recurringIncome,
+    recurringExpense,
+    variableIncome,
+    variableExpense,
+    net,
+    netIncludesVariable,
+    required,
+    surplus: required && netIncludesVariable ? subCells(net, required) : null,
+    historyDays: forecast.historyDays,
+    daysUntilReady: forecast.daysUntilReady,
+  };
 }
 
 // ---------------------------------------------------------------------------

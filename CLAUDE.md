@@ -38,6 +38,7 @@ src/ui/       React UI
   sheets/         TransactionSheet, GoalForm/GoalSheet, RuleSheet, CategorySheet
   components/     Sheet, ConfirmDialog, Toast, BottomNav, fields, Money, …
   charts/         SavingsChart, CashFlowChart (lazy-loaded Recharts), CategoryBreakdown, chartData
+                  (chartData.buildSavingsChartModel decides ranges, ticks and label placement — keep that logic pure and tested)
 e2e/          Playwright: scenarios, iPhone layout suite, PWA offline test
 ```
 
@@ -79,6 +80,7 @@ runs E2E on both (`E2E_WEBKIT=1`).
 - Progress % never shows 100 before the goal is reached, never below 0.
 - Forecast uses recurring rules (next 12 months) + average **manual** income/expense over the last ≤ 90 days. Needs ≥ 30 days of recorded history; otherwise show 「支出データがまだ十分ありません」 and no forecast numbers. Never show a completion date when average net savings ≤ 0.
 - Pace: achieved / on-track / slightly-behind (shortfall ≤ 10% of target) / behind / overdue — always with reasons.
+- Rate table (1日 / 1週 / 1か月, `buildRateTable`): 1 month = 30.436875 days. Recurring rules are converted from their nominal frequency (weekly ¥1,000 → exactly ¥1,000/週, monthly ¥62,000 → exactly ¥62,000/月); each cell is rounded once and group totals / net are column sums of the displayed cells, so the table always adds up. Required amounts come from `GoalMetrics` (ceil).
 - Recurring rules never back-fill before the goal's 貯金開始日; re-enabling a paused rule resumes from today.
 
 ## Date rules

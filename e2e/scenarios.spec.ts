@@ -14,8 +14,10 @@ test('Scenario 1: first launch → create MacBook goal → dashboard', async ({ 
   await expect(page.getByTestId('progress-percent')).toHaveText('44%');
   await expect(page.getByTestId('goal-card')).toContainText('2027/04/01');
   await expect(page.getByTestId('goal-card')).toContainText('あと183日');
-  // 250,000 / (183 / 30.436875 months) = 41,580.43 → rounded up to ¥41,581/月
-  await expect(page.getByLabel('必要な貯金額')).toContainText('¥41,581/月');
+  // ¥250,000 remaining over 183 days, rounded up: ¥1,367/日, ¥9,563/週, ¥41,581/月
+  await expectMoney(page, 'required-day', '¥1,367');
+  await expectMoney(page, 'required-week', '¥9,563');
+  await expectMoney(page, 'required-month', '¥41,581');
   await expectNoHorizontalScroll(page);
 });
 
@@ -61,6 +63,18 @@ test('Scenario 4: recurring income is generated automatically, never duplicated'
   await expectMoney(page, 'current-savings', '¥260,000');
   await goTab(page, '履歴');
   await expect(page.getByTestId('tx-row').filter({ hasText: 'アルバイト' })).toHaveCount(1);
+
+  // Plan: the monthly income is split per day / week (60,000 ÷ 30.436875 days = 1,971/日).
+  await goTab(page, 'プラン');
+  const table = page.getByTestId('rate-table');
+  await expect(table.getByTestId('rate-recurring-income')).toContainText('+1,971');
+  await expect(table.getByTestId('rate-recurring-income')).toContainText('+13,799');
+  await expect(table.getByTestId('rate-recurring-income')).toContainText('+60,000');
+  await expect(table.getByRole('rowheader', { name: 'アルバイト' })).toBeVisible();
+  // Fresh goal: only recurring amounts are known yet, so no surplus row is shown.
+  await expect(table.getByTestId('rate-net')).toContainText('定期分のみ');
+  await expect(table.getByTestId('rate-required')).toBeVisible();
+  await expect(table.getByTestId('rate-surplus')).toHaveCount(0);
 });
 
 test('Scenario 5: fixed expense is generated automatically', async ({ page }) => {
