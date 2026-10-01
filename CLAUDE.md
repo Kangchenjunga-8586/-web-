@@ -34,7 +34,7 @@ src/storage/  The ONLY code that touches IndexedDB
 src/ui/       React UI
   App.tsx         bootstrap (init DB, live snapshot, recurring generation on launch/date change), shell, sheet host
   AppContext.ts   snapshot, today, dashboard, openAdd/openSheet/toast/confirm
-  screens/        Setup, Home, History, Plan, Settings, Recurring, Categories
+  screens/        Setup, Home, History, Plan (tab label 「グラフ」), Settings, Recurring, Categories
   sheets/         TransactionSheet, GoalForm/GoalSheet, RuleSheet, CategorySheet
   components/     Sheet, ConfirmDialog, Toast, BottomNav, fields, Money, …
   charts/         SavingsChart, CashFlowChart (lazy-loaded Recharts), CategoryBreakdown, chartData
@@ -47,6 +47,9 @@ dataset) and derives numbers with `computeDashboard` (memoized). Writes go throu
 `storage/repository.ts`. Keep calculation logic out of components.
 
 Routing is a tiny hash router (`#/`, `#/history`, `#/plan`, `#/settings`, `#/settings/income|expenses|categories`) — works on GitHub Pages without rewrites.
+`navigate(route, anchor)` scrolls to a `Section id` (`savings`, `monthly`, `categories`, `outlook`, `rates`, `goal` on the グラフ tab) via `scrollToAnchor`, which keeps re-aligning while lazy charts load and stops on user input, route change, or after 2 s (a stale correction must never pull another screen down).
+
+Screen order is part of the product: on Home the savings chart sits right under the 支出/収入 buttons and must stay fully visible in the first screen; the グラフ tab opens with 貯金の推移 first. `e2e/iphone-ui.spec.ts` asserts both.
 
 ## Commands (run them yourself in the cloud environment)
 

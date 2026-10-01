@@ -46,6 +46,13 @@ export const TargetIcon = (p: IconProps) => (
   </Svg>
 );
 
+export const ChartIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 4v15.5a.5.5 0 0 0 .5.5H20" />
+    <path d="m7.5 14.5 3.5-4 3 2.5 5-6" />
+  </Svg>
+);
+
 export const GearIcon = (p: IconProps) => (
   <Svg {...p}>
     <circle cx="12" cy="12" r="3" />

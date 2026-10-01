@@ -78,6 +78,19 @@ async function expectTouchTargets(page: Page) {
   expect(small, 'touch targets smaller than 44pt').toEqual([]);
 }
 
+/** Top edge of the bottom tab bar (content below it is hidden behind the bar). */
+async function navTop(page: Page): Promise<number> {
+  return page.getByRole('navigation', { name: 'メインメニュー' }).evaluate((el) => el.getBoundingClientRect().top);
+}
+
+/** The element is fully visible in the first screen, i.e. without any scrolling. */
+async function expectInFirstScreen(page: Page, testId: string) {
+  await page.evaluate(() => window.scrollTo(0, 0));
+  const box = (await page.getByTestId(testId).boundingBox())!;
+  expect(box.y, `${testId} starts on screen`).toBeGreaterThanOrEqual(0);
+  expect(box.y + box.height, `${testId} visible above the tab bar without scrolling`).toBeLessThanOrEqual(await navTop(page));
+}
+
 async function expectSafeAreas(page: Page) {
   // Top: page headings must sit below the Dynamic Island inset.
   const headingTop = await page.locator('main h1').first().evaluate((el) => el.getBoundingClientRect().top);
@@ -120,9 +133,10 @@ for (const scheme of ['light', 'dark'] as const) {
       const chart = await page.getByTestId('savings-chart').boundingBox();
       expect(chart!.x).toBeGreaterThanOrEqual(0);
       expect(chart!.x + chart!.width).toBeLessThanOrEqual(440);
-      // The key numbers are in the first screen.
+      // The key numbers and the savings chart are in the first screen (no scrolling).
       const remaining = await page.getByTestId('remaining-amount').boundingBox();
       expect(remaining!.y + remaining!.height).toBeLessThan(VIEW_H * 0.6);
+      await expectInFirstScreen(page, 'savings-chart');
       await shot(page, `${scheme}-02-home`);
       await shot(page, `${scheme}-03-home-full`, true);
 
@@ -150,8 +164,13 @@ for (const scheme of ['light', 'dark'] as const) {
       await expect(page.getByText('この月の記録はまだありません')).toBeVisible();
       await shot(page, `${scheme}-06-history-empty`);
 
-      await goTab(page, 'プラン');
+      await goTab(page, 'グラフ');
+      // One tap on the グラフ tab: the savings chart is the first thing on screen.
+      await expect(page.getByRole('heading', { name: 'グラフ', level: 1 })).toBeVisible();
+      await expect(page.getByTestId('savings-chart').locator('svg').first()).toBeVisible();
+      await expectInFirstScreen(page, 'savings-chart');
       await expect(page.getByTestId('cashflow-chart').locator('svg').first()).toBeVisible();
+      await expect(page.locator('#categories').getByTestId('category-breakdown')).toBeVisible();
       await expectNoHorizontalScroll(page);
       await expectSafeAreas(page);
       await expectTouchTargets(page);
@@ -223,6 +242,46 @@ for (const scheme of ['light', 'dark'] as const) {
   });
 }
 
+test('Home shortcuts open the グラフ tab at the right section', async ({ page }) => {
+  await page.clock.setFixedTime(FIXED_NOW);
+  await emulateSafeArea(page);
+  await page.goto('/');
+  await restoreDemo(page);
+  const safeTop = effectiveSafeArea(page).top;
+
+  // 収支の目安 › → the 1日・1週・1か月 table, even though charts above it load lazily.
+  await page.getByTestId('link-rates').click();
+  await expect(page.getByRole('heading', { name: 'グラフ', level: 1 })).toBeAttached();
+  await expect(page.getByTestId('rate-table')).toBeVisible();
+  await expect
+    .poll(async () => Math.round((await page.locator('#rates').boundingBox())!.y), { timeout: 4000 })
+    .toBeLessThanOrEqual(safeTop + 30);
+  expect((await page.locator('#rates').boundingBox())!.y).toBeGreaterThanOrEqual(safeTop);
+  await shot(page, 'light-19-anchor-rates');
+
+  // 見通し card → the outlook section.
+  await goTab(page, 'ホーム');
+  await page.getByTestId('pace-card').click();
+  await expect(page.getByTestId('plan-pace')).toBeVisible();
+  await expect
+    .poll(async () => Math.round((await page.locator('#outlook').boundingBox())!.y), { timeout: 4000 })
+    .toBeLessThanOrEqual(safeTop + 30);
+
+  // Tapping the tab itself starts at the top (charts first). The earlier jump must not
+  // pull the page back down to 見通し when the layout changes afterwards.
+  await goTab(page, 'ホーム');
+  await goTab(page, 'グラフ');
+  await page.evaluate(async () => {
+    window.scrollTo(0, 0);
+    const spacer = document.body.appendChild(document.createElement('div'));
+    spacer.style.height = '1px';
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    spacer.remove();
+  });
+  expect(await page.evaluate(() => window.scrollY), 'stays at the top after a layout change').toBe(0);
+  await expectInFirstScreen(page, 'savings-chart');
+});
+
 test('fresh goal shows "not enough data" instead of an invented forecast', async ({ page }) => {
   await page.clock.setFixedTime(FIXED_NOW);
   await emulateSafeArea(page);
@@ -232,7 +291,7 @@ test('fresh goal shows "not enough data" instead of an invented forecast', async
   await page.getByLabel('購入目標日').fill('2027-03-31');
   await page.getByTestId('setup-submit').click();
   await expectNoHorizontalScroll(page);
-  await goTab(page, 'プラン');
+  await goTab(page, 'グラフ');
   await expect(page.getByTestId('insufficient-data')).toContainText('支出データがまだ十分ありません');
   await expect(page.getByTestId('plan-estimated-date')).toContainText('—');
   await expectNoHorizontalScroll(page);
@@ -262,12 +321,12 @@ test('large text (Safari page zoom 125% ≈ 352pt wide) does not break layout', 
   await page.clock.setFixedTime(FIXED_NOW);
   await page.goto('/');
   await restoreDemo(page);
-  for (const tab of ['ホーム', '履歴', 'プラン', '設定'] as const) {
+  for (const tab of ['ホーム', '履歴', 'グラフ', '設定'] as const) {
     await goTab(page, tab);
     await expectNoHorizontalScroll(page);
   }
   // The 1日/1週/1か月 table must not spill numbers into neighbouring cells.
-  await goTab(page, 'プラン');
+  await goTab(page, 'グラフ');
   const table = page.getByTestId('rate-table');
   const overflowing = await table.locator('td').evaluateAll((cells) =>
     cells.filter((c) => c.scrollWidth > c.clientWidth + 1).map((c) => c.textContent),

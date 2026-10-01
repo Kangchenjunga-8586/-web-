@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo } from 'react';
+import { Suspense, useMemo } from 'react';
 import { idealSavingsOn } from '../../domain/calculations';
 import { diffDays, formatDateJa, formatDateSlash, todayInTokyo } from '../../domain/dates';
 import { formatYen } from '../../domain/money';
@@ -11,8 +11,8 @@ import { PaceBadge, PaceIcon } from '../components/PaceBadge';
 import { ProgressBar } from '../components/ProgressBar';
 import { TransactionRow } from '../components/TransactionRow';
 import { ChartFallback } from '../charts/ChartFallback';
+import { SavingsChart } from '../charts/lazy';
 
-const SavingsChart = lazy(() => import('../charts/SavingsChart'));
 
 const BACKUP_REMINDER_DAYS = 30;
 
@@ -113,6 +113,13 @@ export function HomeScreen() {
         </Button>
       </div>
 
+      {/* Savings trend right under the goal so it is visible without scrolling. */}
+      <section className="card mt-3 px-2 pt-3 pb-2" aria-label="貯金の推移" data-testid="home-chart-card">
+        <Suspense fallback={<ChartFallback height={310} />}>
+          <SavingsChart height={240} title="貯金の推移" />
+        </Suspense>
+      </section>
+
       {/* Next action: how much to save. */}
       {!metrics.achieved && !metrics.targetDatePassed && (
         <section className="card mt-3 px-4 pt-2 pb-4" aria-label="必要な貯金額">
@@ -120,8 +127,9 @@ export function HomeScreen() {
             <h2 className="text-[13px] font-semibold text-ink-3">目標までに必要な貯金</h2>
             <button
               type="button"
-              onClick={() => navigate('plan')}
+              onClick={() => navigate('plan', 'rates')}
               className="-mr-1 flex min-h-[44px] items-center gap-0.5 px-1 text-[13px] text-accent-ink"
+              data-testid="link-rates"
             >
               収支の目安
               <ChevronRight size={14} />
@@ -148,7 +156,7 @@ export function HomeScreen() {
 
       <button
         type="button"
-        onClick={() => navigate('plan')}
+        onClick={() => navigate('plan', 'outlook')}
         className="card pressable mt-3 flex w-full items-start gap-3 p-4 text-left"
         data-testid="pace-card"
       >
@@ -184,11 +192,6 @@ export function HomeScreen() {
         </dl>
       </section>
 
-      <section className="card mt-3 px-2 pt-3 pb-2" aria-label="貯金の推移">
-        <Suspense fallback={<ChartFallback height={310} />}>
-          <SavingsChart height={240} title="貯金の推移" />
-        </Suspense>
-      </section>
 
       <section className="mt-6" aria-label="最近の記録">
         <div className="mb-2 flex items-center justify-between px-1">
